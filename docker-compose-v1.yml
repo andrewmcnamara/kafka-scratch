@@ -1,0 +1,53 @@
+version: '3.5'
+networks:
+  default:
+    name: kafka-net
+services:
+    zookeeper:
+        ports:
+            - '2181:2181'
+            - '2888:2888'
+            - '3888:3888'
+        image: 'debezium/zookeeper:1.1'
+
+    kafka:
+        ports:
+            - '9092:9092'
+        image: debezium/kafka
+        environment:
+          ZOOKEEPER_CONNECT: zookeeper:2181
+        depends_on:
+          - zookeeper
+    connect:
+        container_name: connectdbz
+        ports:
+            - '8083:8083'
+        environment:
+            - GROUP_ID=1
+            - CONFIG_STORAGE_TOPIC=my_connect_configs
+            - OFFSET_STORAGE_TOPIC=my_connect_offsets
+            - STATUS_STORAGE_TOPIC=my_connect_statuses
+            - BOOTSTRAP_SERVERS=kafka:9092       
+        depends_on:
+            - zookeeper
+            - kafka
+            - example-mysql
+            - elasticsearch
+        image: debezium/connect            
+    elasticsearch:
+        container_name: elasticdbz
+        ports:
+            - '9292:9200'
+            - '9393:9300'
+        environment:
+            - discovery.type=single-node
+        image: 'docker.elastic.co/elasticsearch/elasticsearch:7.7.0'          
+    example-mysql:
+        container_name: mysqldbz
+        ports:
+            - '3306:3306'
+        environment:
+            - MYSQL_ROOT_PASSWORD=debezium
+            - MYSQL_USER=mysqluser
+            - MYSQL_PASSWORD=mysqlpw
+        image: debezium/example-mysql          

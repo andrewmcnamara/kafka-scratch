@@ -1,0 +1,69 @@
+version: "3.5"
+networks:
+  default:
+    name: kafka-net
+services:
+  # zookeeper:
+  #     ports:
+  #         - "2181:2181"
+  #         - "2888:2888"
+  #         - "3888:3888"
+  #     image: "debezium/zookeeper:1.1"
+  zookeeper:
+    image: wurstmeister/zookeeper
+    ports:
+      - "2181:2181"
+  kafka:
+    container_name: kafkadbz
+    image: wurstmeister/kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "127.0.0.1:9094:9094"
+    environment:
+      #KAFKA_ADVERTISED_HOST_NAME: 192.168.99.100
+      KAFKA_CREATE_TOPICS: "test:1:1"
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://:9092,OUTSIDE://127.0.0.1:9094
+      KAFKA_LISTENERS: INSIDE://:9092,OUTSIDE://:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+  connect:
+    container_name: connectdbz
+    image: debezium/connect-jdbc-es:${DEBEZIUM_VERSION}
+    build:
+      context: connect-jdbc-es
+    ports:
+      - "8083:8083"
+    environment:
+      - GROUP_ID=1
+      - CONFIG_STORAGE_TOPIC=my_connect_configs
+      - OFFSET_STORAGE_TOPIC=my_connect_offsets
+      - STATUS_STORAGE_TOPIC=my_connect_statuses
+      - BOOTSTRAP_SERVERS=kafka:9092
+    depends_on:
+      - zookeeper
+      - kafka
+      - example-mysql
+      - elasticsearch
+    # image: debezium/connect
+  elasticsearch:
+    container_name: elasticdbz
+    ports:
+      - "9292:9200"
+      - "9393:9300"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    image: "docker.elastic.co/elasticsearch/elasticsearch:7.7.0"
+
+  example-mysql:
+    container_name: mysqldbz
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=debezium
+      - MYSQL_USER=mysqluser
+      - MYSQL_PASSWORD=mysqlpw
+    image: debezium/example-mysql
